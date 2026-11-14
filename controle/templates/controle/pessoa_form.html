@@ -1,0 +1,53 @@
+{% extends "controle/base.html" %}
+
+{% block title %}Cadastrar Pessoa — Controle de Empréstimos{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Cadastrar Pessoa</h1>
+    <p>Cadastre responsáveis pelas retiradas de equipamentos. Identificadores duplicados são impedidos.</p>
+  </div>
+  <a href="{% url 'controle:pessoa_list' %}" class="btn btn-secondary">Voltar para Lista</a>
+</div>
+
+<div class="card form-card">
+  {% if form.errors %}
+    <div class="alert alert-error">
+      Não foi possível concluir o cadastro. Verifique os campos destacados abaixo.
+    </div>
+  {% endif %}
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+    <div class="form-group">
+      <label for="{{ form.nome.id_for_label }}">{{ form.nome.label }}</label>
+      {{ form.nome }}
+      {% for error in form.nome.errors %}
+        <div class="field-error">{{ error }}</div>
+      {% endfor %}
+    </div>
+
+    <div class="form-group">
+      <label for="{{ form.identificador.id_for_label }}">{{ form.identificador.label }}</label>
+      {{ form.identificador }}
+      {% for error in form.identificador.errors %}
+        <div class="field-error">{{ error }}</div>
+      {% endfor %}
+    </div>
+
+    <div class="form-group">
+      <label for="{{ form.contato.id_for_label }}">{{ form.contato.label }}</label>
+      {{ form.contato }}
+      {% for error in form.contato.errors %}
+        <div class="field-error">{{ error }}</div>
+      {% endfor %}
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">Salvar Pessoa</button>
+      <a href="{% url 'controle:pessoa_list' %}" class="btn btn-secondary">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

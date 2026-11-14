@@ -1,0 +1,67 @@
+{% extends "controle/base.html" %}
+
+{% block title %}Pessoas Cadastradas — Controle de Empréstimos{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Pessoas Autorizadas</h1>
+    <p>Pessoas cadastradas para retirada de equipamentos no laboratório ({{ total_pessoas }} no total).</p>
+  </div>
+  <a href="{% url 'controle:pessoa_create' %}" class="btn btn-primary">+ Nova Pessoa</a>
+</div>
+
+<div class="card">
+  <div class="toolbar">
+    <form method="get" class="search-form">
+      <input
+        type="text"
+        name="q"
+        value="{{ busca }}"
+        placeholder="Pesquisar por nome, matrícula ou contato..."
+        aria-label="Pesquisar pessoa"
+      >
+      <button type="submit" class="btn btn-primary">Pesquisar</button>
+      {% if busca %}
+        <a href="{% url 'controle:pessoa_list' %}" class="btn btn-secondary">Limpar</a>
+      {% endif %}
+    </form>
+  </div>
+
+  {% if pessoas %}
+    <table>
+      <thead>
+        <tr>
+          <th>Nome</th>
+          <th>Matrícula / Identificador</th>
+          <th>Contato</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for pessoa in pessoas %}
+          <tr>
+            <td><strong>{{ pessoa.nome }}</strong></td>
+            <td><span class="code-pill">{{ pessoa.identificador }}</span></td>
+            <td>{{ pessoa.contato }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <div class="helper-box">
+      <strong>Prévia de seleção para empréstimos:</strong>
+      <div class="form-group" style="margin-top: 8px; margin-bottom: 0;">
+        <select aria-label="Pessoas disponíveis para seleção">
+          {% for p in pessoas_selecao %}
+            <option value="{{ p.pk }}">{{ p.resumo_exibicao }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+  {% else %}
+    <div class="empty-state">
+      Nenhuma pessoa encontrada com os critérios informados.
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

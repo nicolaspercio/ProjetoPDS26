@@ -1,0 +1,86 @@
+{% extends "controle/base.html" %}
+
+{% block title %}Equipamentos Disponíveis — Controle de Empréstimos{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Equipamentos do Laboratório</h1>
+    <p>Consulte a disponibilidade dos materiais ou pesquise por nome e código de identificação.</p>
+  </div>
+  <a href="{% url 'controle:equipamento_create' %}" class="btn btn-primary">+ Novo Equipamento</a>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-label">Total cadastrado</div>
+    <div class="stat-value">{{ resumo.total }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Disponíveis</div>
+    <div class="stat-value ok">{{ resumo.disponiveis }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Emprestados</div>
+    <div class="stat-value warn">{{ resumo.emprestados }}</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="toolbar">
+    <form method="get" class="search-form">
+      <input type="hidden" name="situacao" value="{{ situacao }}">
+      <input
+        type="text"
+        name="q"
+        value="{{ busca }}"
+        placeholder="Pesquisar por nome ou código (ex.: Notebook, NB-001)..."
+        aria-label="Pesquisar por nome ou código"
+      >
+      <button type="submit" class="btn btn-primary">Pesquisar</button>
+      {% if busca or situacao != 'todos' %}
+        <a href="{% url 'controle:equipamento_list' %}" class="btn btn-secondary">Limpar</a>
+      {% endif %}
+    </form>
+
+    <div class="filter-tabs">
+      <a href="?q={{ busca|urlencode }}&situacao=todos" class="filter-tab {% if situacao == 'todos' %}active{% endif %}">Todos</a>
+      <a href="?q={{ busca|urlencode }}&situacao=disponiveis" class="filter-tab {% if situacao == 'disponiveis' %}active{% endif %}">Disponíveis</a>
+      <a href="?q={{ busca|urlencode }}&situacao=emprestados" class="filter-tab {% if situacao == 'emprestados' %}active{% endif %}">Emprestados</a>
+    </div>
+  </div>
+
+  {% if equipamentos %}
+    <table>
+      <thead>
+        <tr>
+          <th>Equipamento</th>
+          <th>Código</th>
+          <th>Descrição</th>
+          <th>Situação</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in equipamentos %}
+          <tr>
+            <td><strong>{{ item.nome }}</strong></td>
+            <td><span class="code-pill">{{ item.codigo }}</span></td>
+            <td>{{ item.descricao|default:"—" }}</td>
+            <td>
+              {% if item.esta_disponivel %}
+                <span class="badge badge-available">Disponível</span>
+              {% else %}
+                <span class="badge badge-borrowed">Emprestado</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div class="empty-state">
+      Nenhum equipamento encontrado com os critérios informados.
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

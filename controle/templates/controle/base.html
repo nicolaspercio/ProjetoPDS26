@@ -1,0 +1,42 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Controle de Empréstimos de Equipamentos{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'controle/css/style.css' %}">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-title">Controle de Empréstimos de Equipamentos</span>
+      <span class="brand-subtitle">Laboratório de Informática — Sistemas de Informação UFU</span>
+    </div>
+    <nav class="nav">
+      <a href="{% url 'controle:equipamento_list' %}" class="{% if secao_ativa == 'equipamentos' %}active{% endif %}">
+        Consultar Equipamentos
+      </a>
+      <a href="{% url 'controle:equipamento_create' %}" class="{% if secao_ativa == 'novo_equipamento' %}active{% endif %}">
+        Cadastrar Equipamento
+      </a>
+      <a href="{% url 'controle:pessoa_list' %}" class="{% if secao_ativa == 'pessoas' %}active{% endif %}">
+        Pessoas
+      </a>
+      <a href="{% url 'controle:pessoa_create' %}" class="{% if secao_ativa == 'nova_pessoa' %}active{% endif %}">
+        Cadastrar Pessoa
+      </a>
+    </nav>
+  </header>
+
+  <main class="container">
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert alert-success">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>
