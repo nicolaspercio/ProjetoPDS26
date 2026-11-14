@@ -4,39 +4,28 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}Controle de Empréstimos de Equipamentos{% endblock %}</title>
+  <title>{% block title %}Controle de Empréstimos{% endblock %}</title>
   <link rel="stylesheet" href="{% static 'controle/css/style.css' %}">
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand">
-      <span class="brand-title">Controle de Empréstimos de Equipamentos</span>
-      <span class="brand-subtitle">Laboratório de Informática — Sistemas de Informação UFU</span>
+  <div class="topo">
+    <h1>Sistema de Controle de Empréstimos de Equipamentos</h1>
+    <div class="menu">
+      <a href="{% url 'controle:equipamento_list' %}" class="{% if secao_ativa == 'equipamentos' %}ativo{% endif %}">Equipamentos</a>
+      <a href="{% url 'controle:equipamento_create' %}" class="{% if secao_ativa == 'novo_equipamento' %}ativo{% endif %}">Cadastrar equipamento</a>
+      <a href="{% url 'controle:pessoa_list' %}" class="{% if secao_ativa == 'pessoas' %}ativo{% endif %}">Pessoas</a>
+      <a href="{% url 'controle:pessoa_create' %}" class="{% if secao_ativa == 'nova_pessoa' %}ativo{% endif %}">Cadastrar pessoa</a>
     </div>
-    <nav class="nav">
-      <a href="{% url 'controle:equipamento_list' %}" class="{% if secao_ativa == 'equipamentos' %}active{% endif %}">
-        Consultar Equipamentos
-      </a>
-      <a href="{% url 'controle:equipamento_create' %}" class="{% if secao_ativa == 'novo_equipamento' %}active{% endif %}">
-        Cadastrar Equipamento
-      </a>
-      <a href="{% url 'controle:pessoa_list' %}" class="{% if secao_ativa == 'pessoas' %}active{% endif %}">
-        Pessoas
-      </a>
-      <a href="{% url 'controle:pessoa_create' %}" class="{% if secao_ativa == 'nova_pessoa' %}active{% endif %}">
-        Cadastrar Pessoa
-      </a>
-    </nav>
-  </header>
+  </div>
 
-  <main class="container">
+  <div class="caixa">
     {% if messages %}
       {% for message in messages %}
-        <div class="alert alert-success">{{ message }}</div>
+        <div class="{% if 'error' in message.tags %}msg-erro{% else %}msg-ok{% endif %}">{{ message }}</div>
       {% endfor %}
     {% endif %}
 
     {% block content %}{% endblock %}
-  </main>
+  </div>
 </body>
 </html>

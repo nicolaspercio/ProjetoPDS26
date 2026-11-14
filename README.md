@@ -11,4 +11,23 @@ As tecnologias previstas são Python com Django para o backend orientado a objet
 
 O desenvolvimento seguirá o Scrum com as adaptações da disciplina. As atividades serão acompanhadas no Jira, e o código e a documentação ficarão neste repositório.
 
-Nesta primeira etapa, foram definidos o escopo, as tecnologias e o backlog inicial. As funcionalidades ainda serão implementadas nas próximas sprints.
+## Funcionalidades implementadas (Sprint 2)
+
+- **US01 — Cadastrar equipamentos:** cadastro com nome, código de identificação (único, normalizado) e descrição.
+- **US02 — Cadastrar pessoas:** cadastro com nome, matrícula/identificador (único, normalizado) e contato, disponibilizando as pessoas para seleção.
+- **US03 — Consultar equipamentos disponíveis:** listagem com nome, código, descrição e situação (`Disponível` / `Emprestado`), com filtro por situação e busca por nome ou código.
+
+## Como executar localmente
+
+```bash
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py popular_exemplo
+python manage.py runserver
+```
+
+Para executar os testes automatizados:
+
+```bash
+python manage.py test
+```

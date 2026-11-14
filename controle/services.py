@@ -66,6 +66,10 @@ class CadastroPessoasService:
         """Disponibiliza as pessoas cadastradas ordenadas para seleção futura."""
         return Pessoa.objects.order_by("nome", "identificador")
 
+    def contar(self) -> int:
+        """Retorna a quantidade total de pessoas cadastradas."""
+        return Pessoa.objects.count()
+
     def cadastrar(self, nome: str, identificador: str, contato: str) -> Pessoa:
         """Valida e persiste uma nova pessoa autorizada."""
         pessoa = Pessoa(

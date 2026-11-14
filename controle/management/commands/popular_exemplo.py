@@ -39,7 +39,7 @@ class Command(BaseCommand):
         ]
         for nome, codigo, descricao, disponivel in equipamentos:
             Equipamento.objects.get_or_create(
-                codigo=codigo,
+                codigo=Equipamento.normalizar_codigo(codigo),
                 defaults={
                     "nome": nome,
                     "descricao": descricao,
@@ -54,7 +54,7 @@ class Command(BaseCommand):
         ]
         for nome, identificador, contato in pessoas:
             Pessoa.objects.get_or_create(
-                identificador=identificador,
+                identificador=Pessoa.normalizar_identificador(identificador),
                 defaults={
                     "nome": nome,
                     "contato": contato,

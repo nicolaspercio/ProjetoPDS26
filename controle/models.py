@@ -46,25 +46,23 @@ class Equipamento(models.Model):
         self.codigo = self.normalizar_codigo(self.codigo)
         self.descricao = (self.descricao or "").strip()
 
+        erros: dict[str, str] = {}
         if not self.nome:
-            raise ValidationError({"nome": "Informe o nome do equipamento."})
+            erros["nome"] = "Informe o nome do equipamento."
         if not self.codigo:
-            raise ValidationError(
-                {"codigo": "Informe o código de identificação do equipamento."}
-            )
+            erros["codigo"] = "Informe o código de identificação do equipamento."
+        else:
+            duplicado = Equipamento.objects.filter(codigo__iexact=self.codigo)
+            if self.pk:
+                duplicado = duplicado.exclude(pk=self.pk)
+            if duplicado.exists():
+                erros["codigo"] = (
+                    "Já existe um equipamento cadastrado com este código de "
+                    "identificação."
+                )
 
-        duplicado = Equipamento.objects.filter(codigo__iexact=self.codigo)
-        if self.pk:
-            duplicado = duplicado.exclude(pk=self.pk)
-        if duplicado.exists():
-            raise ValidationError(
-                {
-                    "codigo": (
-                        "Já existe um equipamento cadastrado com este código de "
-                        "identificação."
-                    )
-                }
-            )
+        if erros:
+            raise ValidationError(erros)
 
     def save(self, *args, **kwargs) -> None:
         """Normaliza o código antes de persistir no SQLite."""
@@ -108,27 +106,25 @@ class Pessoa(models.Model):
         self.identificador = self.normalizar_identificador(self.identificador)
         self.contato = (self.contato or "").strip()
 
+        erros: dict[str, str] = {}
         if not self.nome:
-            raise ValidationError({"nome": "Informe o nome da pessoa."})
+            erros["nome"] = "Informe o nome da pessoa."
         if not self.identificador:
-            raise ValidationError(
-                {"identificador": "Informe a matrícula ou identificador."}
-            )
+            erros["identificador"] = "Informe a matrícula ou identificador."
+        else:
+            duplicado = Pessoa.objects.filter(identificador__iexact=self.identificador)
+            if self.pk:
+                duplicado = duplicado.exclude(pk=self.pk)
+            if duplicado.exists():
+                erros["identificador"] = (
+                    "Já existe uma pessoa cadastrada com esta matrícula ou "
+                    "identificador."
+                )
         if not self.contato:
-            raise ValidationError({"contato": "Informe um contato (e-mail ou telefone)."})
+            erros["contato"] = "Informe um contato (e-mail ou telefone)."
 
-        duplicado = Pessoa.objects.filter(identificador__iexact=self.identificador)
-        if self.pk:
-            duplicado = duplicado.exclude(pk=self.pk)
-        if duplicado.exists():
-            raise ValidationError(
-                {
-                    "identificador": (
-                        "Já existe uma pessoa cadastrada com esta matrícula ou "
-                        "identificador."
-                    )
-                }
-            )
+        if erros:
+            raise ValidationError(erros)
 
     def save(self, *args, **kwargs) -> None:
         """Normaliza o identificador antes de persistir no SQLite."""

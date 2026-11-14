@@ -5,12 +5,27 @@ from django import forms
 from .models import Equipamento, Pessoa
 
 
-class EquipamentoForm(forms.ModelForm):
+class SemErrosDuplicadosMixin:
+    """Evita duplicar erros de modelo em campos que já falharam na validação do form."""
+
+    def _post_clean(self) -> None:
+        erros_previos = set(self._errors.keys()) if self._errors else set()
+        super()._post_clean()
+        for campo in erros_previos:
+            if campo in self._errors and len(self._errors[campo]) > 1:
+                self._errors[campo] = self.error_class([self._errors[campo][0]])
+
+
+class EquipamentoForm(SemErrosDuplicadosMixin, forms.ModelForm):
     """Formulário de cadastro de equipamentos (US01)."""
 
     class Meta:
         model = Equipamento
         fields = ["nome", "codigo", "descricao"]
+        error_messages = {
+            "nome": {"required": "Informe o nome do equipamento."},
+            "codigo": {"required": "Informe o código de identificação do equipamento."},
+        }
         widgets = {
             "nome": forms.TextInput(
                 attrs={
@@ -37,12 +52,17 @@ class EquipamentoForm(forms.ModelForm):
         return Equipamento.normalizar_codigo(self.cleaned_data.get("codigo", ""))
 
 
-class PessoaForm(forms.ModelForm):
+class PessoaForm(SemErrosDuplicadosMixin, forms.ModelForm):
     """Formulário de cadastro de pessoas (US02)."""
 
     class Meta:
         model = Pessoa
         fields = ["nome", "identificador", "contato"]
+        error_messages = {
+            "nome": {"required": "Informe o nome da pessoa."},
+            "identificador": {"required": "Informe a matrícula ou identificador."},
+            "contato": {"required": "Informe um contato (e-mail ou telefone)."},
+        }
         widgets = {
             "nome": forms.TextInput(
                 attrs={
