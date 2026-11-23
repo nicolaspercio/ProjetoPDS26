@@ -1,5 +1,6 @@
-"""Testes automatizados das histórias US01, US02 e US03 (Sprint 2)."""
+"""Testes automatizados das histórias US01 a US06 (Sprints 2 e 3)."""
 
+from datetime import date, timedelta
 from io import StringIO
 
 from django.core.exceptions import ValidationError
@@ -7,8 +8,12 @@ from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
 
-from .models import Equipamento, Pessoa
-from .services import CadastroPessoasService, CatalogoEquipamentosService
+from .models import Emprestimo, Equipamento, Pessoa
+from .services import (
+    CadastroPessoasService,
+    CatalogoEquipamentosService,
+    EmprestimoService,
+)
 
 
 class EquipamentoTests(TestCase):
@@ -238,6 +243,9 @@ class NavegacaoEExemploTests(TestCase):
             "controle:equipamento_create",
             "controle:pessoa_list",
             "controle:pessoa_create",
+            "controle:emprestimo_list",
+            "controle:emprestimo_create",
+            "controle:devolucao_create",
         ]
         for rota in rotas:
             with self.subTest(rota=rota):
@@ -253,3 +261,181 @@ class NavegacaoEExemploTests(TestCase):
         self.assertEqual(Pessoa.objects.count(), 3)
         self.assertEqual(Equipamento.objects.filter(disponivel=True).count(), 3)
         self.assertEqual(Equipamento.objects.filter(disponivel=False).count(), 1)
+        self.assertEqual(Emprestimo.objects.filter(data_devolucao__isnull=True).count(), 1)
+
+
+class EmprestimoTests(TestCase):
+    """Verifica os critérios de aceitação de US04, US05 e US06."""
+
+    def setUp(self) -> None:
+        self.equipamento_service = CatalogoEquipamentosService()
+        self.pessoa_service = CadastroPessoasService()
+        self.emprestimo_service = EmprestimoService()
+
+        self.notebook = self.equipamento_service.cadastrar(
+            "Notebook Dell", "NB-001", "16GB RAM"
+        )
+        self.projetor = self.equipamento_service.cadastrar(
+            "Projetor Epson", "PRJ-001", "HDMI"
+        )
+        self.mariana = self.pessoa_service.cadastrar(
+            "Mariana Oliveira", "12311BSI014", "mariana@ufu.br"
+        )
+        self.lucas = self.pessoa_service.cadastrar(
+            "Lucas Mendes", "12321BSI027", "(34) 99812-3400"
+        )
+
+    def test_us04_registrar_emprestimo_valido_e_impedir_duplicidade_em_aberto(
+        self,
+    ) -> None:
+        resp = self.client.post(
+            reverse("controle:emprestimo_create"),
+            data={
+                "equipamento": self.notebook.pk,
+                "pessoa": self.mariana.pk,
+                "data_retirada": "2026-11-20",
+                "prazo_devolucao": "2026-11-27",
+            },
+            follow=True,
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.notebook.refresh_from_db()
+        self.assertFalse(self.notebook.esta_disponivel())
+        self.assertEqual(Emprestimo.objects.count(), 1)
+        self.assertContains(resp, "Notebook Dell")
+        self.assertContains(resp, "Mariana Oliveira")
+
+        # Tentar emprestar novamente o mesmo equipamento em aberto deve falhar
+        resp_dup = self.client.post(
+            reverse("controle:emprestimo_create"),
+            data={
+                "equipamento": self.notebook.pk,
+                "pessoa": self.lucas.pk,
+                "data_retirada": "2026-11-21",
+                "prazo_devolucao": "2026-11-28",
+            },
+        )
+        self.assertEqual(resp_dup.status_code, 200)
+        self.assertEqual(Emprestimo.objects.count(), 1)
+        self.assertContains(resp_dup, "já está emprestado", count=1)
+
+        with self.assertRaises(ValidationError):
+            self.emprestimo_service.registrar_emprestimo(
+                self.notebook,
+                self.lucas,
+                date(2026, 11, 21),
+                date(2026, 11, 28),
+            )
+
+    def test_us04_impedir_prazo_anterior_a_data_de_retirada(self) -> None:
+        resp = self.client.post(
+            reverse("controle:emprestimo_create"),
+            data={
+                "equipamento": self.projetor.pk,
+                "pessoa": self.mariana.pk,
+                "data_retirada": "2026-11-23",
+                "prazo_devolucao": "2026-11-20",
+            },
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(Emprestimo.objects.count(), 0)
+        self.assertContains(
+            resp, "O prazo de devolução não pode ser anterior à data de retirada."
+        )
+
+    def test_us05_registrar_devolucao_libera_equipamento_e_preserva_historico(
+        self,
+    ) -> None:
+        emprestimo = self.emprestimo_service.registrar_emprestimo(
+            self.notebook,
+            self.mariana,
+            date(2026, 11, 20),
+            date(2026, 11, 27),
+        )
+        resp = self.client.post(
+            reverse("controle:devolucao_create"),
+            data={
+                "emprestimo": emprestimo.pk,
+                "data_devolucao": "2026-11-23",
+            },
+            follow=True,
+        )
+        self.assertEqual(resp.status_code, 200)
+        emprestimo.refresh_from_db()
+        self.notebook.refresh_from_db()
+
+        self.assertEqual(emprestimo.data_devolucao, date(2026, 11, 23))
+        self.assertFalse(emprestimo.esta_em_andamento())
+        self.assertTrue(self.notebook.esta_disponivel())
+        self.assertEqual(Emprestimo.objects.count(), 1)
+        self.assertContains(resp, "Devolução de")
+
+        # Após devolução, o equipamento pode ser emprestado novamente
+        novo = self.emprestimo_service.registrar_emprestimo(
+            self.notebook,
+            self.lucas,
+            date(2026, 11, 24),
+            date(2026, 11, 30),
+        )
+        self.assertTrue(novo.esta_em_andamento())
+        self.assertEqual(Emprestimo.objects.count(), 2)
+
+    def test_us05_impedir_devolucao_anterior_a_retirada(self) -> None:
+        emprestimo = self.emprestimo_service.registrar_emprestimo(
+            self.projetor,
+            self.mariana,
+            date(2026, 11, 20),
+            date(2026, 11, 27),
+        )
+        resp = self.client.post(
+            reverse("controle:devolucao_create"),
+            data={
+                "emprestimo": emprestimo.pk,
+                "data_devolucao": "2026-11-18",
+            },
+        )
+        self.assertEqual(resp.status_code, 200)
+        emprestimo.refresh_from_db()
+        self.assertIsNone(emprestimo.data_devolucao)
+        self.assertContains(
+            resp, "A data de devolução não pode ser anterior à data de retirada."
+        )
+
+    def test_us06_consultar_emprestimos_em_andamento_exclui_devolvidos_e_filtra(
+        self,
+    ) -> None:
+        emp_aberto = self.emprestimo_service.registrar_emprestimo(
+            self.notebook,
+            self.mariana,
+            date(2026, 11, 20),
+            date(2026, 11, 27),
+        )
+        emp_devolvido = self.emprestimo_service.registrar_emprestimo(
+            self.projetor,
+            self.lucas,
+            date(2026, 11, 18),
+            date(2026, 11, 25),
+        )
+        self.emprestimo_service.registrar_devolucao(emp_devolvido, date(2026, 11, 21))
+
+        resp = self.client.get(reverse("controle:emprestimo_list"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Notebook Dell (NB-001)")
+        self.assertContains(resp, "Mariana Oliveira")
+        self.assertNotContains(resp, "Projetor Epson (PRJ-001)")
+        self.assertEqual(resp.context["total_em_andamento"], 1)
+
+        resp_busca_pessoa = self.client.get(
+            reverse("controle:emprestimo_list"), {"q": "Mariana"}
+        )
+        self.assertContains(resp_busca_pessoa, "NB-001")
+
+        resp_busca_codigo = self.client.get(
+            reverse("controle:emprestimo_list"), {"q": "NB-001"}
+        )
+        self.assertContains(resp_busca_codigo, emp_aberto.pessoa.nome)
+
+        resp_vazio = self.client.get(
+            reverse("controle:emprestimo_list"), {"q": "Lucas"}
+        )
+        self.assertContains(resp_vazio, "Nenhum empréstimo em andamento encontrado.")

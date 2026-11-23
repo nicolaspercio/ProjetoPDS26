@@ -1,7 +1,8 @@
-"""Modelos orientados a objetos do domínio de equipamentos e pessoas."""
+"""Modelos orientados a objetos do domínio de equipamentos, pessoas e empréstimos."""
 
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import Q
 
 
 def normalizar_chave_unica(valor: str) -> str:
@@ -132,3 +133,89 @@ class Pessoa(models.Model):
         self.identificador = self.normalizar_identificador(self.identificador)
         self.contato = (self.contato or "").strip()
         super().save(*args, **kwargs)
+
+
+class Emprestimo(models.Model):
+    """Representa o empréstimo de um equipamento para uma pessoa autorizada."""
+
+    equipamento = models.ForeignKey(
+        Equipamento,
+        on_delete=models.PROTECT,
+        related_name="emprestimos",
+        verbose_name="Equipamento",
+    )
+    pessoa = models.ForeignKey(
+        Pessoa,
+        on_delete=models.PROTECT,
+        related_name="emprestimos",
+        verbose_name="Pessoa",
+    )
+    data_retirada = models.DateField("Data de retirada")
+    prazo_devolucao = models.DateField("Prazo de devolução")
+    data_devolucao = models.DateField("Data de devolução", null=True, blank=True)
+    criado_em = models.DateTimeField("Criado em", auto_now_add=True)
+
+    class Meta:
+        ordering = ["-data_retirada", "-criado_em"]
+        verbose_name = "Empréstimo"
+        verbose_name_plural = "Empréstimos"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["equipamento"],
+                condition=Q(data_devolucao__isnull=True),
+                name="uniq_emprestimo_aberto_por_equipamento",
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.equipamento} -> {self.pessoa}"
+
+    def esta_em_andamento(self) -> bool:
+        """Indica se o empréstimo ainda não foi devolvido."""
+        return self.data_devolucao is None
+
+    def situacao_label(self) -> str:
+        """Retorna o rótulo textual da situação atual do empréstimo."""
+        return "Em andamento" if self.esta_em_andamento() else "Devolvido"
+
+    def clean(self) -> None:
+        """Valida datas e impede novo empréstimo de equipamento não devolvido."""
+        super().clean()
+        erros: dict[str, str] = {}
+
+        if (
+            self.data_retirada is not None
+            and self.prazo_devolucao is not None
+            and self.prazo_devolucao < self.data_retirada
+        ):
+            erros["prazo_devolucao"] = (
+                "O prazo de devolução não pode ser anterior à data de retirada."
+            )
+
+        if (
+            self.data_devolucao is not None
+            and self.data_retirada is not None
+            and self.data_devolucao < self.data_retirada
+        ):
+            erros["data_devolucao"] = (
+                "A data de devolução não pode ser anterior à data de retirada."
+            )
+
+        if self.esta_em_andamento() and self.equipamento_id:
+            aberto_existente = Emprestimo.objects.filter(
+                equipamento_id=self.equipamento_id,
+                data_devolucao__isnull=True,
+            )
+            if self.pk:
+                aberto_existente = aberto_existente.exclude(pk=self.pk)
+
+            if aberto_existente.exists() or (
+                not self.pk and not self.equipamento.esta_disponivel()
+            ):
+                erros["equipamento"] = (
+                    "Este equipamento já está emprestado e não pode ser retirado "
+                    "antes da devolução."
+                )
+
+        if erros:
+            raise ValidationError(erros)

@@ -1,8 +1,11 @@
 """Comando para popular dados iniciais de demonstração no banco SQLite."""
 
-from django.core.management.base import BaseCommand
+from datetime import timedelta
 
-from controle.models import Equipamento, Pessoa
+from django.core.management.base import BaseCommand
+from django.utils import timezone
+
+from controle.models import Emprestimo, Equipamento, Pessoa
 
 
 class Command(BaseCommand):
@@ -59,6 +62,22 @@ class Command(BaseCommand):
                     "nome": nome,
                     "contato": contato,
                 },
+            )
+
+        teclado = Equipamento.objects.get(codigo="TEC-002")
+        mariana = Pessoa.objects.get(identificador="12311BSI014")
+        if (
+            not teclado.esta_disponivel()
+            and not Emprestimo.objects.filter(
+                equipamento=teclado, data_devolucao__isnull=True
+            ).exists()
+        ):
+            hoje = timezone.localdate()
+            Emprestimo.objects.create(
+                equipamento=teclado,
+                pessoa=mariana,
+                data_retirada=hoje - timedelta(days=2),
+                prazo_devolucao=hoje + timedelta(days=5),
             )
 
         self.stdout.write(self.style.SUCCESS("Dados de exemplo verificados com sucesso."))

@@ -1,8 +1,11 @@
 """Formulários Django com normalização e validação via modelos."""
 
-from django import forms
+from datetime import timedelta
 
-from .models import Equipamento, Pessoa
+from django import forms
+from django.utils import timezone
+
+from .models import Emprestimo, Equipamento, Pessoa
 
 
 class SemErrosDuplicadosMixin:
@@ -89,3 +92,86 @@ class PessoaForm(SemErrosDuplicadosMixin, forms.ModelForm):
         return Pessoa.normalizar_identificador(
             self.cleaned_data.get("identificador", "")
         )
+
+
+class EquipamentoEmprestimoChoiceField(forms.ModelChoiceField):
+    """Exibe equipamento com código e situação atual na seleção de empréstimo."""
+
+    def label_from_instance(self, obj: Equipamento) -> str:
+        return f"{obj.nome} ({obj.codigo}) — {obj.situacao_label()}"
+
+
+class EmprestimoAbertoChoiceField(forms.ModelChoiceField):
+    """Exibe empréstimo em aberto com equipamento, pessoa e prazo."""
+
+    def label_from_instance(self, obj: Emprestimo) -> str:
+        return (
+            f"{obj.equipamento.nome} ({obj.equipamento.codigo}) — "
+            f"{obj.pessoa.nome} (prazo {obj.prazo_devolucao:%d/%m/%Y})"
+        )
+
+
+class EmprestimoForm(SemErrosDuplicadosMixin, forms.ModelForm):
+    """Formulário de registro de empréstimo (US04)."""
+
+    equipamento = EquipamentoEmprestimoChoiceField(
+        queryset=Equipamento.objects.order_by("nome", "codigo"),
+        empty_label="Selecione um equipamento...",
+        label="Equipamento",
+        error_messages={"required": "Selecione o equipamento."},
+    )
+    pessoa = forms.ModelChoiceField(
+        queryset=Pessoa.objects.order_by("nome", "identificador"),
+        empty_label="Selecione uma pessoa...",
+        label="Pessoa responsável",
+        error_messages={"required": "Selecione a pessoa responsável."},
+    )
+
+    class Meta:
+        model = Emprestimo
+        fields = ["equipamento", "pessoa", "data_retirada", "prazo_devolucao"]
+        error_messages = {
+            "data_retirada": {"required": "Informe a data de retirada."},
+            "prazo_devolucao": {"required": "Informe o prazo de devolução."},
+        }
+        widgets = {
+            "data_retirada": forms.DateInput(
+                format="%Y-%m-%d", attrs={"type": "date"}
+            ),
+            "prazo_devolucao": forms.DateInput(
+                format="%Y-%m-%d", attrs={"type": "date"}
+            ),
+        }
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        if not self.is_bound:
+            hoje = timezone.localdate()
+            self.initial.setdefault("data_retirada", hoje)
+            self.initial.setdefault("prazo_devolucao", hoje + timedelta(days=7))
+
+
+class DevolucaoForm(forms.Form):
+    """Formulário de registro de devolução de empréstimo em aberto (US05)."""
+
+    emprestimo = EmprestimoAbertoChoiceField(
+        queryset=Emprestimo.objects.none(),
+        empty_label="Selecione um empréstimo em aberto...",
+        label="Empréstimo em aberto",
+        error_messages={"required": "Selecione o empréstimo a ser devolvido."},
+    )
+    data_devolucao = forms.DateField(
+        label="Data da devolução",
+        widget=forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
+        error_messages={"required": "Informe a data da devolução."},
+    )
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.fields["emprestimo"].queryset = (
+            Emprestimo.objects.select_related("equipamento", "pessoa")
+            .filter(data_devolucao__isnull=True)
+            .order_by("prazo_devolucao", "data_retirada")
+        )
+        if not self.is_bound:
+            self.initial.setdefault("data_devolucao", timezone.localdate())

@@ -1,0 +1,45 @@
+{% extends "controle/base.html" %}
+
+{% block title %}Registrar Devolução{% endblock %}
+
+{% block content %}
+<h2>Registrar devolução</h2>
+
+{% if total_em_andamento == 0 %}
+  <p>Não há empréstimos em aberto no momento.</p>
+  <p class="acao-rodape">
+    <a href="{% url 'controle:emprestimo_list' %}" class="btn btn-cinza">Voltar</a>
+  </p>
+{% else %}
+  {% if form.errors %}
+    <div class="msg-erro">
+      Corrija os campos abaixo para registrar a devolução.
+      {% for error in form.non_field_errors %}
+        <div>{{ error }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+    <div class="campo{% if form.emprestimo.errors %} campo-com-erro{% endif %}">
+      <label for="{{ form.emprestimo.id_for_label }}">{{ form.emprestimo.label }}:</label>
+      {{ form.emprestimo }}
+      {% for error in form.emprestimo.errors %}
+        <div class="erro-campo">{{ error }}</div>
+      {% endfor %}
+    </div>
+
+    <div class="campo{% if form.data_devolucao.errors %} campo-com-erro{% endif %}">
+      <label for="{{ form.data_devolucao.id_for_label }}">{{ form.data_devolucao.label }}:</label>
+      {{ form.data_devolucao }}
+      {% for error in form.data_devolucao.errors %}
+        <div class="erro-campo">{{ error }}</div>
+      {% endfor %}
+    </div>
+
+    <button type="submit" class="btn">Confirmar devolução</button>
+    <a href="{% url 'controle:emprestimo_list' %}" class="btn btn-cinza">Voltar</a>
+  </form>
+{% endif %}
+{% endblock %}

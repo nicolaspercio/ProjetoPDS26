@@ -1,8 +1,13 @@
-"""Serviços orientados a objetos para regras de cadastro e consulta."""
+"""Serviços orientados a objetos para regras de cadastro, empréstimo e consulta."""
 
+from datetime import date
+
+from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.db.models import Q, QuerySet
+from django.utils import timezone
 
-from .models import Equipamento, Pessoa
+from .models import Emprestimo, Equipamento, Pessoa
 
 
 class CatalogoEquipamentosService:
@@ -80,3 +85,81 @@ class CadastroPessoasService:
         pessoa.full_clean()
         pessoa.save()
         return pessoa
+
+
+class EmprestimoService:
+    """Centraliza registro de empréstimos, devoluções e consultas (US04, US05, US06)."""
+
+    def listar_em_andamento(self, busca: str = "") -> QuerySet[Emprestimo]:
+        """Retorna apenas empréstimos sem data de devolução, com pesquisa opcional."""
+        qs = Emprestimo.objects.select_related("equipamento", "pessoa").filter(
+            data_devolucao__isnull=True
+        )
+        termo = (busca or "").strip()
+        if termo:
+            qs = qs.filter(
+                Q(equipamento__nome__icontains=termo)
+                | Q(equipamento__codigo__icontains=termo)
+                | Q(pessoa__nome__icontains=termo)
+                | Q(pessoa__identificador__icontains=termo)
+            )
+        return qs
+
+    def contar_em_andamento(self) -> int:
+        """Retorna a quantidade de empréstimos em aberto."""
+        return Emprestimo.objects.filter(data_devolucao__isnull=True).count()
+
+    @transaction.atomic
+    def registrar_emprestimo(
+        self,
+        equipamento: Equipamento,
+        pessoa: Pessoa,
+        data_retirada: date,
+        prazo_devolucao: date,
+    ) -> Emprestimo:
+        """Valida disponibilidade e registra novo empréstimo atualizando o equipamento."""
+        equipamento_atual = Equipamento.objects.select_for_update().get(pk=equipamento.pk)
+        pessoa_atual = Pessoa.objects.get(pk=pessoa.pk)
+
+        emprestimo = Emprestimo(
+            equipamento=equipamento_atual,
+            pessoa=pessoa_atual,
+            data_retirada=data_retirada,
+            prazo_devolucao=prazo_devolucao,
+        )
+        emprestimo.full_clean()
+        emprestimo.save()
+
+        equipamento_atual.disponivel = False
+        equipamento_atual.save(update_fields=["disponivel"])
+        return emprestimo
+
+    @transaction.atomic
+    def registrar_devolucao(
+        self,
+        emprestimo: Emprestimo | int,
+        data_devolucao: date | None = None,
+    ) -> Emprestimo:
+        """Registra a devolução de um empréstimo em aberto e libera o equipamento."""
+        emprestimo_id = emprestimo.pk if isinstance(emprestimo, Emprestimo) else emprestimo
+        registro = (
+            Emprestimo.objects.select_related("equipamento", "pessoa")
+            .select_for_update()
+            .get(pk=emprestimo_id)
+        )
+
+        if not registro.esta_em_andamento():
+            raise ValidationError(
+                {"emprestimo": "Este empréstimo já teve devolução registrada."}
+            )
+
+        registro.data_devolucao = data_devolucao or timezone.localdate()
+        registro.full_clean()
+        registro.save(update_fields=["data_devolucao"])
+
+        equipamento = Equipamento.objects.select_for_update().get(
+            pk=registro.equipamento_id
+        )
+        equipamento.disponivel = True
+        equipamento.save(update_fields=["disponivel"])
+        return registro

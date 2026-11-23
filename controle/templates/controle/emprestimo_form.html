@@ -1,0 +1,54 @@
+{% extends "controle/base.html" %}
+
+{% block title %}Registrar Empréstimo{% endblock %}
+
+{% block content %}
+<h2>Registrar empréstimo</h2>
+
+{% if form.errors %}
+  <div class="msg-erro">
+    Corrija os campos abaixo para registrar o empréstimo.
+    {% for error in form.non_field_errors %}
+      <div>{{ error }}</div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+<form method="post" novalidate>
+  {% csrf_token %}
+  <div class="campo{% if form.equipamento.errors %} campo-com-erro{% endif %}">
+    <label for="{{ form.equipamento.id_for_label }}">{{ form.equipamento.label }}:</label>
+    {{ form.equipamento }}
+    {% for error in form.equipamento.errors %}
+      <div class="erro-campo">{{ error }}</div>
+    {% endfor %}
+  </div>
+
+  <div class="campo{% if form.pessoa.errors %} campo-com-erro{% endif %}">
+    <label for="{{ form.pessoa.id_for_label }}">{{ form.pessoa.label }}:</label>
+    {{ form.pessoa }}
+    {% for error in form.pessoa.errors %}
+      <div class="erro-campo">{{ error }}</div>
+    {% endfor %}
+  </div>
+
+  <div class="campo{% if form.data_retirada.errors %} campo-com-erro{% endif %}">
+    <label for="{{ form.data_retirada.id_for_label }}">{{ form.data_retirada.label }}:</label>
+    {{ form.data_retirada }}
+    {% for error in form.data_retirada.errors %}
+      <div class="erro-campo">{{ error }}</div>
+    {% endfor %}
+  </div>
+
+  <div class="campo{% if form.prazo_devolucao.errors %} campo-com-erro{% endif %}">
+    <label for="{{ form.prazo_devolucao.id_for_label }}">{{ form.prazo_devolucao.label }}:</label>
+    {{ form.prazo_devolucao }}
+    {% for error in form.prazo_devolucao.errors %}
+      <div class="erro-campo">{{ error }}</div>
+    {% endfor %}
+  </div>
+
+  <button type="submit" class="btn">Confirmar empréstimo</button>
+  <a href="{% url 'controle:emprestimo_list' %}" class="btn btn-cinza">Voltar</a>
+</form>
+{% endblock %}

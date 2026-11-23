@@ -1,0 +1,53 @@
+{% extends "controle/base.html" %}
+
+{% block title %}Empréstimos em andamento - Controle de Empréstimos{% endblock %}
+
+{% block content %}
+<h2>Empréstimos em andamento ({{ total_em_andamento }})</h2>
+
+<div class="barra-busca">
+  <form method="get" class="form-busca">
+    <input type="text" name="q" value="{{ busca }}" placeholder="Buscar por pessoa ou equipamento">
+    <button type="submit" class="btn">Buscar</button>
+    {% if busca %}
+      <a href="{% url 'controle:emprestimo_list' %}" class="btn btn-cinza">Limpar</a>
+    {% endif %}
+  </form>
+</div>
+
+{% if emprestimos %}
+  <div class="tabela-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Equipamento</th>
+          <th>Pessoa responsável</th>
+          <th>Retirada</th>
+          <th>Prazo de devolução</th>
+          <th>Ação</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in emprestimos %}
+          <tr>
+            <td>{{ item.equipamento.nome }} ({{ item.equipamento.codigo }})</td>
+            <td>{{ item.pessoa.nome }} ({{ item.pessoa.identificador }})</td>
+            <td>{{ item.data_retirada|date:"d/m/Y" }}</td>
+            <td>{{ item.prazo_devolucao|date:"d/m/Y" }}</td>
+            <td>
+              <a href="{% url 'controle:devolucao_create' %}?emprestimo={{ item.pk }}" class="btn btn-cinza">Devolver</a>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <p>Nenhum empréstimo em andamento encontrado.</p>
+{% endif %}
+
+<p class="acao-rodape">
+  <a href="{% url 'controle:emprestimo_create' %}" class="btn">+ Registrar empréstimo</a>
+  <a href="{% url 'controle:devolucao_create' %}" class="btn btn-cinza">Registrar devolução</a>
+</p>
+{% endblock %}

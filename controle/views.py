@@ -1,14 +1,18 @@
-"""Views baseadas em classes (CBVs) para US01, US02 e US03."""
+"""Views baseadas em classes (CBVs) para cadastros, consultas, empréstimos e devoluções."""
 
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.http import HttpResponseRedirect
 from django.urls import reverse_lazy
-from django.views.generic import CreateView, ListView
+from django.views.generic import CreateView, FormView, ListView
 
-from .forms import EquipamentoForm, PessoaForm
-from .models import Equipamento, Pessoa
-from .services import CadastroPessoasService, CatalogoEquipamentosService
+from .forms import DevolucaoForm, EmprestimoForm, EquipamentoForm, PessoaForm
+from .models import Emprestimo, Equipamento, Pessoa
+from .services import (
+    CadastroPessoasService,
+    CatalogoEquipamentosService,
+    EmprestimoService,
+)
 
 
 class EquipamentoListView(ListView):
@@ -122,4 +126,95 @@ class PessoaCreateView(CreateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["secao_ativa"] = "nova_pessoa"
+        return context
+
+
+class EmprestimoListView(ListView):
+    """Lista apenas empréstimos em andamento com pesquisa por pessoa ou equipamento (US06)."""
+
+    model = Emprestimo
+    template_name = "controle/emprestimo_list.html"
+    context_object_name = "emprestimos"
+    service = EmprestimoService()
+
+    def get_queryset(self):
+        busca = self.request.GET.get("q", "")
+        return self.service.listar_em_andamento(busca=busca)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["busca"] = self.request.GET.get("q", "").strip()
+        context["total_em_andamento"] = self.service.contar_em_andamento()
+        context["secao_ativa"] = "emprestimos"
+        return context
+
+
+class EmprestimoCreateView(CreateView):
+    """Registra um novo empréstimo de equipamento disponível (US04)."""
+
+    model = Emprestimo
+    form_class = EmprestimoForm
+    template_name = "controle/emprestimo_form.html"
+    success_url = reverse_lazy("controle:emprestimo_list")
+    service = EmprestimoService()
+
+    def form_valid(self, form):
+        try:
+            self.object = self.service.registrar_emprestimo(
+                equipamento=form.cleaned_data["equipamento"],
+                pessoa=form.cleaned_data["pessoa"],
+                data_retirada=form.cleaned_data["data_retirada"],
+                prazo_devolucao=form.cleaned_data["prazo_devolucao"],
+            )
+        except ValidationError as exc:
+            form.add_error(None, exc)
+            return self.form_invalid(form)
+
+        messages.success(
+            self.request,
+            f"Empréstimo de '{self.object.equipamento}' para '{self.object.pessoa}' registrado com sucesso.",
+        )
+        return HttpResponseRedirect(self.get_success_url())
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["secao_ativa"] = "novo_emprestimo"
+        return context
+
+
+class DevolucaoCreateView(FormView):
+    """Registra a devolução de um empréstimo em aberto (US05)."""
+
+    form_class = DevolucaoForm
+    template_name = "controle/devolucao_form.html"
+    success_url = reverse_lazy("controle:emprestimo_list")
+    service = EmprestimoService()
+
+    def get_initial(self):
+        initial = super().get_initial()
+        emprestimo_id = self.request.GET.get("emprestimo")
+        if emprestimo_id and emprestimo_id.isdigit():
+            initial["emprestimo"] = int(emprestimo_id)
+        return initial
+
+    def form_valid(self, form):
+        try:
+            registro = self.service.registrar_devolucao(
+                emprestimo=form.cleaned_data["emprestimo"],
+                data_devolucao=form.cleaned_data["data_devolucao"],
+            )
+        except ValidationError as exc:
+            form.add_error(None, exc)
+            return self.form_invalid(form)
+
+        messages.success(
+            self.request,
+            f"Devolução de '{registro.equipamento}' registrada com sucesso. O equipamento voltou a ficar disponível.",
+        )
+        return HttpResponseRedirect(self.get_success_url())
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["total_em_andamento"] = self.service.contar_em_andamento()
+        context["secao_ativa"] = "devolucao"
         return context

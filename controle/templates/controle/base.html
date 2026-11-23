@@ -15,6 +15,9 @@
       <a href="{% url 'controle:equipamento_create' %}" class="{% if secao_ativa == 'novo_equipamento' %}ativo{% endif %}">Cadastrar equipamento</a>
       <a href="{% url 'controle:pessoa_list' %}" class="{% if secao_ativa == 'pessoas' %}ativo{% endif %}">Pessoas</a>
       <a href="{% url 'controle:pessoa_create' %}" class="{% if secao_ativa == 'nova_pessoa' %}ativo{% endif %}">Cadastrar pessoa</a>
+      <a href="{% url 'controle:emprestimo_list' %}" class="{% if secao_ativa == 'emprestimos' %}ativo{% endif %}">Empréstimos em andamento</a>
+      <a href="{% url 'controle:emprestimo_create' %}" class="{% if secao_ativa == 'novo_emprestimo' %}ativo{% endif %}">Registrar empréstimo</a>
+      <a href="{% url 'controle:devolucao_create' %}" class="{% if secao_ativa == 'devolucao' %}ativo{% endif %}">Registrar devolução</a>
     </div>
   </div>
 

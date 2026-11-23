@@ -163,7 +163,8 @@ select {
 }
 
 .campo-com-erro input,
-.campo-com-erro textarea {
+.campo-com-erro textarea,
+.campo-com-erro select {
   border-color: #b91c1c;
 }
 

@@ -2,7 +2,7 @@
 
 from django.contrib import admin
 
-from .models import Equipamento, Pessoa
+from .models import Emprestimo, Equipamento, Pessoa
 
 
 @admin.register(Equipamento)
@@ -16,3 +16,21 @@ class EquipamentoAdmin(admin.ModelAdmin):
 class PessoaAdmin(admin.ModelAdmin):
     list_display = ("nome", "identificador", "contato", "criado_em")
     search_fields = ("nome", "identificador", "contato")
+
+
+@admin.register(Emprestimo)
+class EmprestimoAdmin(admin.ModelAdmin):
+    list_display = (
+        "equipamento",
+        "pessoa",
+        "data_retirada",
+        "prazo_devolucao",
+        "data_devolucao",
+    )
+    list_filter = ("data_devolucao",)
+    search_fields = (
+        "equipamento__nome",
+        "equipamento__codigo",
+        "pessoa__nome",
+        "pessoa__identificador",
+    )
