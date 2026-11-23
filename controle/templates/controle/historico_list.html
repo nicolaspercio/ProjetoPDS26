@@ -1,0 +1,81 @@
+{% extends "controle/base.html" %}
+
+{% block title %}Histórico de empréstimos - Controle de Empréstimos{% endblock %}
+
+{% block content %}
+<h2>Histórico de empréstimos</h2>
+
+<div class="barra-busca">
+  <form method="get" class="form-busca">
+    <input type="hidden" name="situacao" value="{{ situacao }}">
+    <input type="text" name="q" value="{{ busca }}" placeholder="Buscar por nome ou código">
+    <select name="equipamento" aria-label="Filtrar por equipamento">
+      <option value="">Todos os equipamentos</option>
+      {% for eq in equipamentos_filtro %}
+        <option value="{{ eq.pk }}" {% if equipamento_selecionado == eq.pk %}selected{% endif %}>
+          {{ eq.nome }} ({{ eq.codigo }})
+        </option>
+      {% endfor %}
+    </select>
+    <select name="pessoa" aria-label="Filtrar por pessoa">
+      <option value="">Todas as pessoas</option>
+      {% for p in pessoas_filtro %}
+        <option value="{{ p.pk }}" {% if pessoa_selecionada == p.pk %}selected{% endif %}>
+          {{ p.resumo_exibicao }}
+        </option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="btn">Filtrar</button>
+    {% if busca or equipamento_selecionado or pessoa_selecionada or situacao != 'todos' %}
+      <a href="{% url 'controle:historico_list' %}" class="btn btn-cinza">Limpar</a>
+    {% endif %}
+  </form>
+
+  <div class="filtros">
+    Situação:
+    <a href="?q={{ busca|urlencode }}&equipamento={{ equipamento_selecionado|default:'' }}&pessoa={{ pessoa_selecionada|default:'' }}&situacao=todos" class="{% if situacao == 'todos' %}ativo{% endif %}">Todos ({{ resumo.total }})</a>
+    <a href="?q={{ busca|urlencode }}&equipamento={{ equipamento_selecionado|default:'' }}&pessoa={{ pessoa_selecionada|default:'' }}&situacao=em_andamento" class="{% if situacao == 'em_andamento' %}ativo{% endif %}">Em andamento ({{ resumo.em_andamento }})</a>
+    <a href="?q={{ busca|urlencode }}&equipamento={{ equipamento_selecionado|default:'' }}&pessoa={{ pessoa_selecionada|default:'' }}&situacao=atrasados" class="{% if situacao == 'atrasados' %}ativo{% endif %}">Atrasados ({{ resumo.atrasados }})</a>
+    <a href="?q={{ busca|urlencode }}&equipamento={{ equipamento_selecionado|default:'' }}&pessoa={{ pessoa_selecionada|default:'' }}&situacao=devolvidos" class="{% if situacao == 'devolvidos' %}ativo{% endif %}">Devolvidos ({{ resumo.devolvidos }})</a>
+  </div>
+</div>
+
+{% if emprestimos %}
+  <div class="tabela-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Equipamento</th>
+          <th>Pessoa responsável</th>
+          <th>Retirada</th>
+          <th>Prazo</th>
+          <th>Devolução</th>
+          <th>Situação</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in emprestimos %}
+          <tr>
+            <td>{{ item.equipamento.nome }} ({{ item.equipamento.codigo }})</td>
+            <td>{{ item.pessoa.nome }} ({{ item.pessoa.identificador }})</td>
+            <td>{{ item.data_retirada|date:"d/m/Y" }}</td>
+            <td>{{ item.prazo_devolucao|date:"d/m/Y" }}</td>
+            <td>{% if item.data_devolucao %}{{ item.data_devolucao|date:"d/m/Y" }}{% else %}-{% endif %}</td>
+            <td>
+              {% if not item.esta_em_andamento %}
+                <span class="status-dev">Devolvido</span>
+              {% elif item.esta_atrasado %}
+                <span class="status-atraso">Atrasado</span>
+              {% else %}
+                <span class="status-emp">Em andamento</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <p>Nenhum registro encontrado no histórico.</p>
+{% endif %}
+{% endblock %}

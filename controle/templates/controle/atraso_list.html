@@ -1,0 +1,60 @@
+{% extends "controle/base.html" %}
+
+{% block title %}Empréstimos atrasados - Controle de Empréstimos{% endblock %}
+
+{% block content %}
+<h2>Empréstimos atrasados ({{ total_atrasados }})</h2>
+
+<div class="barra-busca">
+  <form method="get" class="form-busca">
+    <input type="text" name="q" value="{{ busca }}" placeholder="Buscar por pessoa ou equipamento">
+    <button type="submit" class="btn">Buscar</button>
+    {% if busca %}
+      <a href="{% url 'controle:atraso_list' %}" class="btn btn-cinza">Limpar</a>
+    {% endif %}
+  </form>
+</div>
+
+{% if atrasados %}
+  <div class="tabela-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Equipamento</th>
+          <th>Pessoa responsável</th>
+          <th>Contato</th>
+          <th>Retirada</th>
+          <th>Prazo vencido</th>
+          <th>Ação</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in atrasados %}
+          <tr>
+            <td>{{ item.equipamento.nome }} ({{ item.equipamento.codigo }})</td>
+            <td>{{ item.pessoa.nome }} ({{ item.pessoa.identificador }})</td>
+            <td>{{ item.pessoa.contato }}</td>
+            <td>{{ item.data_retirada|date:"d/m/Y" }}</td>
+            <td>
+              <span class="status-atraso">
+                {{ item.prazo_devolucao|date:"d/m/Y" }}
+                ({{ item.dias_em_atraso }} dia{% if item.dias_em_atraso != 1 %}s{% endif %} de atraso)
+              </span>
+            </td>
+            <td>
+              <a href="{% url 'controle:devolucao_create' %}?emprestimo={{ item.pk }}" class="btn btn-cinza">Devolver</a>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <p>Nenhum empréstimo em atraso encontrado.</p>
+{% endif %}
+
+<p class="acao-rodape">
+  <a href="{% url 'controle:emprestimo_list' %}" class="btn btn-cinza">Ver em andamento</a>
+  <a href="{% url 'controle:historico_list' %}" class="btn btn-cinza">Ver histórico completo</a>
+</p>
+{% endblock %}

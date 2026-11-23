@@ -4,10 +4,12 @@ from django.urls import path
 
 from .views import (
     DevolucaoCreateView,
+    EmprestimoAtrasadoListView,
     EmprestimoCreateView,
     EmprestimoListView,
     EquipamentoCreateView,
     EquipamentoListView,
+    HistoricoEmprestimoListView,
     PessoaCreateView,
     PessoaListView,
 )
@@ -22,4 +24,6 @@ urlpatterns = [
     path("emprestimos/", EmprestimoListView.as_view(), name="emprestimo_list"),
     path("emprestimos/novo/", EmprestimoCreateView.as_view(), name="emprestimo_create"),
     path("devolucoes/", DevolucaoCreateView.as_view(), name="devolucao_create"),
+    path("atrasos/", EmprestimoAtrasadoListView.as_view(), name="atraso_list"),
+    path("historico/", HistoricoEmprestimoListView.as_view(), name="historico_list"),
 ]

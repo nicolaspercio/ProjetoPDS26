@@ -109,6 +109,84 @@ class EmprestimoService:
         """Retorna a quantidade de empréstimos em aberto."""
         return Emprestimo.objects.filter(data_devolucao__isnull=True).count()
 
+    def listar_atrasados(
+        self, busca: str = "", referencia: date | None = None
+    ) -> QuerySet[Emprestimo]:
+        """Retorna empréstimos sem devolução cujo prazo já venceu (US07)."""
+        hoje = referencia or timezone.localdate()
+        qs = (
+            Emprestimo.objects.select_related("equipamento", "pessoa")
+            .filter(data_devolucao__isnull=True, prazo_devolucao__lt=hoje)
+            .order_by("prazo_devolucao", "data_retirada")
+        )
+        termo = (busca or "").strip()
+        if termo:
+            qs = qs.filter(
+                Q(equipamento__nome__icontains=termo)
+                | Q(equipamento__codigo__icontains=termo)
+                | Q(pessoa__nome__icontains=termo)
+                | Q(pessoa__identificador__icontains=termo)
+            )
+        return qs
+
+    def contar_atrasados(self, referencia: date | None = None) -> int:
+        """Retorna a quantidade de empréstimos em atraso."""
+        hoje = referencia or timezone.localdate()
+        return Emprestimo.objects.filter(
+            data_devolucao__isnull=True, prazo_devolucao__lt=hoje
+        ).count()
+
+    def listar_historico(
+        self,
+        busca: str = "",
+        equipamento_id: int | None = None,
+        pessoa_id: int | None = None,
+        situacao: str = "todos",
+        referencia: date | None = None,
+    ) -> QuerySet[Emprestimo]:
+        """Retorna histórico completo de empréstimos com filtros combinados (US08)."""
+        hoje = referencia or timezone.localdate()
+        qs = Emprestimo.objects.select_related("equipamento", "pessoa").all()
+
+        termo = (busca or "").strip()
+        if termo:
+            qs = qs.filter(
+                Q(equipamento__nome__icontains=termo)
+                | Q(equipamento__codigo__icontains=termo)
+                | Q(pessoa__nome__icontains=termo)
+                | Q(pessoa__identificador__icontains=termo)
+            )
+
+        if equipamento_id:
+            qs = qs.filter(equipamento_id=equipamento_id)
+
+        if pessoa_id:
+            qs = qs.filter(pessoa_id=pessoa_id)
+
+        if situacao == "em_andamento":
+            qs = qs.filter(data_devolucao__isnull=True)
+        elif situacao == "atrasados":
+            qs = qs.filter(data_devolucao__isnull=True, prazo_devolucao__lt=hoje)
+        elif situacao == "devolvidos":
+            qs = qs.filter(data_devolucao__isnull=False)
+
+        return qs
+
+    def resumo_historico(self, referencia: date | None = None) -> dict[str, int]:
+        """Calcula os totais gerais, em andamento, atrasados e devolvidos."""
+        hoje = referencia or timezone.localdate()
+        total = Emprestimo.objects.count()
+        em_andamento = Emprestimo.objects.filter(data_devolucao__isnull=True).count()
+        atrasados = Emprestimo.objects.filter(
+            data_devolucao__isnull=True, prazo_devolucao__lt=hoje
+        ).count()
+        return {
+            "total": total,
+            "em_andamento": em_andamento,
+            "atrasados": atrasados,
+            "devolvidos": total - em_andamento,
+        }
+
     @transaction.atomic
     def registrar_emprestimo(
         self,

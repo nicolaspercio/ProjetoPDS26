@@ -66,18 +66,29 @@ class Command(BaseCommand):
 
         teclado = Equipamento.objects.get(codigo="TEC-002")
         mariana = Pessoa.objects.get(identificador="12311BSI014")
+        hoje = timezone.localdate()
         if (
             not teclado.esta_disponivel()
             and not Emprestimo.objects.filter(
                 equipamento=teclado, data_devolucao__isnull=True
             ).exists()
         ):
-            hoje = timezone.localdate()
             Emprestimo.objects.create(
                 equipamento=teclado,
                 pessoa=mariana,
-                data_retirada=hoje - timedelta(days=2),
-                prazo_devolucao=hoje + timedelta(days=5),
+                data_retirada=hoje - timedelta(days=10),
+                prazo_devolucao=hoje - timedelta(days=3),
+            )
+
+        arduino = Equipamento.objects.get(codigo="ARD-004")
+        nicolas = Pessoa.objects.get(identificador="12211BSI001")
+        if not Emprestimo.objects.filter(equipamento=arduino).exists():
+            Emprestimo.objects.create(
+                equipamento=arduino,
+                pessoa=nicolas,
+                data_retirada=hoje - timedelta(days=14),
+                prazo_devolucao=hoje - timedelta(days=7),
+                data_devolucao=hoje - timedelta(days=8),
             )
 
         self.stdout.write(self.style.SUCCESS("Dados de exemplo verificados com sucesso."))

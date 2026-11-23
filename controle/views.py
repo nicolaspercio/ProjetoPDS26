@@ -218,3 +218,61 @@ class DevolucaoCreateView(FormView):
         context["total_em_andamento"] = self.service.contar_em_andamento()
         context["secao_ativa"] = "devolucao"
         return context
+
+
+class EmprestimoAtrasadoListView(ListView):
+    """Lista empréstimos em aberto cujo prazo de devolução já venceu (US07)."""
+
+    model = Emprestimo
+    template_name = "controle/atraso_list.html"
+    context_object_name = "atrasados"
+    service = EmprestimoService()
+
+    def get_queryset(self):
+        busca = self.request.GET.get("q", "")
+        return self.service.listar_atrasados(busca=busca)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["busca"] = self.request.GET.get("q", "").strip()
+        context["total_atrasados"] = self.service.contar_atrasados()
+        context["secao_ativa"] = "atrasos"
+        return context
+
+
+class HistoricoEmprestimoListView(ListView):
+    """Lista todo o histórico de empréstimos com filtros por equipamento, pessoa e situação (US08)."""
+
+    model = Emprestimo
+    template_name = "controle/historico_list.html"
+    context_object_name = "emprestimos"
+    service = EmprestimoService()
+    SITUACOES_VALIDAS = {"todos", "em_andamento", "atrasados", "devolvidos"}
+
+    def _situacao_atual(self) -> str:
+        situacao = self.request.GET.get("situacao", "todos").strip()
+        return situacao if situacao in self.SITUACOES_VALIDAS else "todos"
+
+    def _id_filtro(self, param: str) -> int | None:
+        valor = self.request.GET.get(param, "").strip()
+        return int(valor) if valor.isdigit() else None
+
+    def get_queryset(self):
+        return self.service.listar_historico(
+            busca=self.request.GET.get("q", ""),
+            equipamento_id=self._id_filtro("equipamento"),
+            pessoa_id=self._id_filtro("pessoa"),
+            situacao=self._situacao_atual(),
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["busca"] = self.request.GET.get("q", "").strip()
+        context["equipamento_selecionado"] = self._id_filtro("equipamento")
+        context["pessoa_selecionada"] = self._id_filtro("pessoa")
+        context["situacao"] = self._situacao_atual()
+        context["equipamentos_filtro"] = Equipamento.objects.order_by("nome", "codigo")
+        context["pessoas_filtro"] = Pessoa.objects.order_by("nome", "identificador")
+        context["resumo"] = self.service.resumo_historico()
+        context["secao_ativa"] = "historico"
+        return context

@@ -1,4 +1,4 @@
-"""Testes automatizados das histórias US01 a US06 (Sprints 2 e 3)."""
+"""Testes automatizados das histórias US01 a US08 (Sprints 2, 3 e 4)."""
 
 from datetime import date, timedelta
 from io import StringIO
@@ -7,6 +7,7 @@ from django.core.exceptions import ValidationError
 from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from .models import Emprestimo, Equipamento, Pessoa
 from .services import (
@@ -246,6 +247,8 @@ class NavegacaoEExemploTests(TestCase):
             "controle:emprestimo_list",
             "controle:emprestimo_create",
             "controle:devolucao_create",
+            "controle:atraso_list",
+            "controle:historico_list",
         ]
         for rota in rotas:
             with self.subTest(rota=rota):
@@ -439,3 +442,90 @@ class EmprestimoTests(TestCase):
             reverse("controle:emprestimo_list"), {"q": "Lucas"}
         )
         self.assertContains(resp_vazio, "Nenhum empréstimo em andamento encontrado.")
+
+    def test_us07_identificar_atrasados_prazo_hoje_e_retirar_ao_devolver(self) -> None:
+        hoje = timezone.localdate()
+        emp_atrasado = self.emprestimo_service.registrar_emprestimo(
+            self.notebook,
+            self.mariana,
+            hoje - timedelta(days=10),
+            hoje - timedelta(days=3),
+        )
+        emp_hoje = self.emprestimo_service.registrar_emprestimo(
+            self.projetor,
+            self.lucas,
+            hoje - timedelta(days=4),
+            hoje,
+        )
+
+        self.assertTrue(emp_atrasado.esta_atrasado(referencia=hoje))
+        self.assertEqual(emp_atrasado.dias_em_atraso(referencia=hoje), 3)
+        self.assertFalse(emp_hoje.esta_atrasado(referencia=hoje))
+        self.assertEqual(emp_atrasado.situacao_label(referencia=hoje), "Atrasado")
+        self.assertEqual(emp_hoje.situacao_label(referencia=hoje), "Em andamento")
+
+        resp = self.client.get(reverse("controle:atraso_list"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Notebook Dell (NB-001)")
+        self.assertContains(resp, "Mariana Oliveira")
+        self.assertContains(resp, "3 dias de atraso")
+        self.assertNotContains(resp, "Projetor Epson (PRJ-001)")
+        self.assertEqual(resp.context["total_atrasados"], 1)
+
+        # Ao devolver o empréstimo atrasado, ele sai imediatamente da lista de atrasados
+        self.emprestimo_service.registrar_devolucao(emp_atrasado, hoje)
+        resp_pos = self.client.get(reverse("controle:atraso_list"))
+        self.assertNotContains(resp_pos, "Notebook Dell (NB-001)")
+        self.assertContains(resp_pos, "Nenhum empréstimo em atraso encontrado.")
+        self.assertEqual(resp_pos.context["total_atrasados"], 0)
+
+    def test_us08_consultar_historico_completo_com_filtros_por_equipamento_e_pessoa(
+        self,
+    ) -> None:
+        hoje = timezone.localdate()
+        emp_devolvido = self.emprestimo_service.registrar_emprestimo(
+            self.notebook,
+            self.mariana,
+            hoje - timedelta(days=12),
+            hoje - timedelta(days=5),
+        )
+        self.emprestimo_service.registrar_devolucao(
+            emp_devolvido, hoje - timedelta(days=6)
+        )
+
+        self.emprestimo_service.registrar_emprestimo(
+            self.projetor,
+            self.lucas,
+            hoje - timedelta(days=1),
+            hoje + timedelta(days=6),
+        )
+
+        resp_todos = self.client.get(reverse("controle:historico_list"))
+        self.assertEqual(resp_todos.status_code, 200)
+        self.assertContains(resp_todos, "Notebook Dell (NB-001)")
+        self.assertContains(resp_todos, "Projetor Epson (PRJ-001)")
+        self.assertContains(resp_todos, "Devolvido")
+        self.assertContains(resp_todos, "Em andamento")
+        self.assertContains(resp_todos, (hoje - timedelta(days=6)).strftime("%d/%m/%Y"))
+
+        resp_eq = self.client.get(
+            reverse("controle:historico_list"), {"equipamento": self.notebook.pk}
+        )
+        self.assertEqual(list(resp_eq.context["emprestimos"]), [emp_devolvido])
+        self.assertContains(resp_eq, "<td>Notebook Dell (NB-001)</td>", html=False)
+        self.assertNotContains(resp_eq, "<td>Projetor Epson (PRJ-001)</td>", html=False)
+
+        resp_pessoa = self.client.get(
+            reverse("controle:historico_list"), {"pessoa": self.lucas.pk}
+        )
+        self.assertContains(resp_pessoa, "<td>Lucas Mendes (12321BSI027)</td>", html=False)
+        self.assertNotContains(
+            resp_pessoa, "<td>Mariana Oliveira (12311BSI014)</td>", html=False
+        )
+
+        resp_dev = self.client.get(
+            reverse("controle:historico_list"), {"situacao": "devolvidos"}
+        )
+        self.assertEqual(list(resp_dev.context["emprestimos"]), [emp_devolvido])
+        self.assertContains(resp_dev, "<td>Notebook Dell (NB-001)</td>", html=False)
+        self.assertNotContains(resp_dev, "<td>Projetor Epson (PRJ-001)</td>", html=False)

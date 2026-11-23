@@ -18,6 +18,8 @@
       <a href="{% url 'controle:emprestimo_list' %}" class="{% if secao_ativa == 'emprestimos' %}ativo{% endif %}">Empréstimos em andamento</a>
       <a href="{% url 'controle:emprestimo_create' %}" class="{% if secao_ativa == 'novo_emprestimo' %}ativo{% endif %}">Registrar empréstimo</a>
       <a href="{% url 'controle:devolucao_create' %}" class="{% if secao_ativa == 'devolucao' %}ativo{% endif %}">Registrar devolução</a>
+      <a href="{% url 'controle:atraso_list' %}" class="{% if secao_ativa == 'atrasos' %}ativo{% endif %}">Atrasados</a>
+      <a href="{% url 'controle:historico_list' %}" class="{% if secao_ativa == 'historico' %}ativo{% endif %}">Histórico</a>
     </div>
   </div>
 

@@ -1,8 +1,11 @@
 """Modelos orientados a objetos do domínio de equipamentos, pessoas e empréstimos."""
 
+from datetime import date
+
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
+from django.utils import timezone
 
 
 def normalizar_chave_unica(valor: str) -> str:
@@ -174,9 +177,25 @@ class Emprestimo(models.Model):
         """Indica se o empréstimo ainda não foi devolvido."""
         return self.data_devolucao is None
 
-    def situacao_label(self) -> str:
+    def esta_atrasado(self, referencia: date | None = None) -> bool:
+        """Indica se o empréstimo segue em aberto após o prazo de devolução."""
+        hoje = referencia or timezone.localdate()
+        return self.esta_em_andamento() and self.prazo_devolucao < hoje
+
+    def dias_em_atraso(self, referencia: date | None = None) -> int:
+        """Calcula quantos dias se passaram desde o vencimento do prazo."""
+        if not self.esta_atrasado(referencia=referencia):
+            return 0
+        hoje = referencia or timezone.localdate()
+        return (hoje - self.prazo_devolucao).days
+
+    def situacao_label(self, referencia: date | None = None) -> str:
         """Retorna o rótulo textual da situação atual do empréstimo."""
-        return "Em andamento" if self.esta_em_andamento() else "Devolvido"
+        if not self.esta_em_andamento():
+            return "Devolvido"
+        if self.esta_atrasado(referencia=referencia):
+            return "Atrasado"
+        return "Em andamento"
 
     def clean(self) -> None:
         """Valida datas e impede novo empréstimo de equipamento não devolvido."""
